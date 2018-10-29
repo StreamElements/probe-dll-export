@@ -1,0 +1,67 @@
+version: '{build}'
+branches:
+  only:
+  - master
+image: Previous Visual Studio 2017
+configuration: Release
+clone_folder: c:\local\source
+init:
+- ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+environment:
+  AWS_ACCESS_KEY_ID: AKIAJESHQW2DGHPN57KQ
+  AWS_SECRET_ACCESS_KEY:
+    secure: lhOyqT4/E0Oqv8BOQR81rx/SweOIbDELTYW7iJTqRz5shmkZ8eXMCgFzcIuXyvpB
+install:
+- cmd: >-
+
+    set build_config=Release
+
+build_script:
+- cmd: >-
+
+    cd /d c:\local\source
+
+    if exist c:\local\source\build32 rd /s /q c:\local\source\build32
+
+    if not exist c:\local\source\build32 md c:\local\source\build32
+
+    cd /d c:\local\source\build32
+
+    cmake -G "Visual Studio 15 2017" --build=. ..
+
+    msbuild /t:Clean,Build /p:Configuration=Release probe-dll-export.sln
+
+    copy /y Release\probe-dll-export.exe c:\local\source\probe-dll-export-32.exe
+
+
+    if exist c:\local\source\build64 rd /s /q c:\local\source\build64
+
+    if not exist c:\local\source\build64 md c:\local\source\build64
+
+    cd /d c:\local\source\build64
+
+    cmake -G "Visual Studio 15 2017 Win64" --build=. ..
+
+    msbuild /t:Clean,Build /p:Configuration=Release probe-dll-export.sln
+
+    copy /y Release\probe-dll-export.exe c:\local\source\probe-dll-export-64.exe
+
+test: off
+artifacts:
+- path: probe-dll-export-64.exe
+  name: 64bit
+- path: probe-dll-export-32.exe
+  name: 32bit
+deploy:
+- provider: S3
+  access_key_id: AKIAJESHQW2DGHPN57KQ
+  secret_access_key:
+    secure: lhOyqT4/E0Oqv8BOQR81rx/SweOIbDELTYW7iJTqRz5shmkZ8eXMCgFzcIuXyvpB
+  bucket: obs-builds
+  folder: probe-dll-export/latest/windows
+  artifact: 32bit,64bit
+  max_error_retry: 5
+  on:
+    branch: master
+on_success:
+- cmd: echo.All done!
